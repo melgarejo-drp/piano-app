@@ -80,6 +80,55 @@
     padding: 8px; outline: none; width: 100%;
   }
   .modal input[type=range] { padding: 4px; accent-color: #ff3b30; }
+
+  /* Tabs */
+  .modal-tabs { display: flex; gap: 0; border-bottom: 1px solid #222; }
+  .modal-tab {
+    flex: 1; padding: 10px; font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; background: none;
+    border: none; color: #555; cursor: pointer; transition: all 0.15s;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .modal-tab.active { color: #f0f0f0; border-bottom-color: #ff3b30; }
+
+  .modal-panel { display: none; flex-direction: column; gap: 14px; }
+  .modal-panel.active { display: flex; }
+
+  /* File upload zone */
+  .upload-zone {
+    border: 2px dashed #2a2a2a; border-radius: 8px;
+    padding: 28px 16px; text-align: center; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: #ff3b30; background: #1a0800; }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+  }
+  .upload-zone .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-zone p { font-size: 11px; color: #555; letter-spacing: 2px; line-height: 1.6; }
+  .upload-zone p span { color: #ff3b30; }
+
+  .upload-preview {
+    display: none; align-items: center; gap: 10px;
+    background: #0d1a00; border: 1px solid #1a3300;
+    border-radius: 8px; padding: 12px 16px;
+  }
+  .upload-preview.visible { display: flex; }
+  .upload-preview .file-icon { font-size: 24px; }
+  .upload-preview .file-info { flex: 1; font-size: 10px; color: #888; letter-spacing: 1px; line-height: 1.6; }
+  .upload-preview .file-name { color: #c8ff00; font-size: 11px; }
+  .upload-preview .remove-file { color: #555; font-size: 16px; cursor: pointer; padding: 4px; }
+  .upload-preview .remove-file:hover { color: #ff3b30; }
+
+  .base-note-row { display: flex; align-items: center; gap: 10px; }
+  .base-note-row label { font-size: 10px; color: #555; letter-spacing: 2px; white-space: nowrap; }
+  .base-note-row select {
+    flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 4px;
+    color: #f0f0f0; font-family: 'Space Mono', monospace; font-size: 11px;
+    padding: 6px; outline: none;
+  }
+
   .modal-btns { display: flex; gap: 10px; }
   .modal-btn {
     flex: 1; padding: 10px; border-radius: 6px; border: none;
@@ -89,6 +138,7 @@
   .modal-btn.primary { background: #ff3b30; color: #fff; }
   .modal-btn.secondary { background: #1a1a1a; border: 1px solid #333; color: #888; }
   .modal-btn:hover { opacity: 0.8; }
+  .modal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   /* ── PIANO ──────────────────────────────────────── */
   .piano-wrapper { display: flex; flex-direction: column; align-items: center; gap: 16px; }
@@ -199,36 +249,88 @@
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <h3>+ SONIDO PERSONALIZADO</h3>
-    <div class="modal-row">
-      <label>NOMBRE</label>
-      <input type="text" id="custom-name" maxlength="8" placeholder="MI SONIDO"
-        style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:12px;padding:8px;outline:none;width:100%">
+
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchTab('synth')">🎛 SINTETIZADOR</button>
+      <button class="modal-tab"        onclick="switchTab('file')">📁 ARCHIVO</button>
     </div>
-    <div class="modal-row">
-      <label>EMOJI</label>
-      <input type="text" id="custom-emoji" maxlength="2" placeholder="🎵"
-        style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:20px;padding:8px;outline:none;width:80px;text-align:center">
+
+    <!-- Panel: Synth -->
+    <div class="modal-panel active" id="panel-synth">
+      <div class="modal-row">
+        <label>NOMBRE</label>
+        <input type="text" id="custom-name" maxlength="8" placeholder="MI SONIDO"
+          style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:12px;padding:8px;outline:none;width:100%">
+      </div>
+      <div class="modal-row">
+        <label>EMOJI</label>
+        <input type="text" id="custom-emoji" maxlength="2" placeholder="🎵"
+          style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:20px;padding:8px;outline:none;width:80px;text-align:center">
+      </div>
+      <div class="modal-row">
+        <label>ONDA</label>
+        <select id="custom-type">
+          <option value="sine">SINE — suave, pura</option>
+          <option value="square">SQUARE — cuadrada, retro</option>
+          <option value="sawtooth">SAWTOOTH — aserrada, brillante</option>
+          <option value="triangle">TRIANGLE — triangular, cálida</option>
+        </select>
+      </div>
+      <div class="modal-row">
+        <label>ATAQUE <span id="atk-val">5ms</span></label>
+        <input type="range" id="custom-attack" min="1" max="300" value="5">
+      </div>
+      <div class="modal-row">
+        <label>RELEASE <span id="rel-val">0.8s</span></label>
+        <input type="range" id="custom-release" min="1" max="30" value="8">
+      </div>
     </div>
-    <div class="modal-row">
-      <label>ONDA</label>
-      <select id="custom-type">
-        <option value="sine">SINE — suave, pura</option>
-        <option value="square">SQUARE — cuadrada, retro</option>
-        <option value="sawtooth">SAWTOOTH — aserrada, brillante</option>
-        <option value="triangle">TRIANGLE — triangular, cálida</option>
-      </select>
+
+    <!-- Panel: File -->
+    <div class="modal-panel" id="panel-file">
+      <div class="modal-row">
+        <label>NOMBRE</label>
+        <input type="text" id="file-name-input" maxlength="8" placeholder="MI SAMPLE"
+          style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:12px;padding:8px;outline:none;width:100%">
+      </div>
+      <div class="modal-row">
+        <label>EMOJI</label>
+        <input type="text" id="file-emoji-input" maxlength="2" placeholder="🎵"
+          style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:20px;padding:8px;outline:none;width:80px;text-align:center">
+      </div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="audio-file-input" accept=".mp3,.wav,audio/mp3,audio/wav,audio/mpeg">
+        <div class="upload-icon">🎵</div>
+        <p>Arrastra un archivo <span>MP3</span> o <span>WAV</span> aquí<br>o toca para seleccionar</p>
+      </div>
+      <div class="upload-preview" id="upload-preview">
+        <div class="file-icon">🎵</div>
+        <div class="file-info">
+          <div class="file-name" id="preview-name"></div>
+          <div id="preview-size"></div>
+        </div>
+        <div class="remove-file" onclick="clearFile()">✕</div>
+      </div>
+      <div class="base-note-row">
+        <label>NOTA BASE DEL SAMPLE</label>
+        <select id="base-note-select">
+          <option value="440">A4 — 440 Hz (por defecto)</option>
+          <option value="261.63">C4 — 261 Hz</option>
+          <option value="523.25">C5 — 523 Hz</option>
+          <option value="329.63">E4 — 329 Hz</option>
+          <option value="392">G4 — 392 Hz</option>
+          <option value="493.88">B4 — 493 Hz</option>
+        </select>
+      </div>
+      <div style="font-size:9px;color:#333;letter-spacing:1px;line-height:1.6">
+        * El sample se reproducirá en la frecuencia original en la nota base seleccionada. Las otras teclas ajustan el pitch proporcionalmente.
+      </div>
     </div>
-    <div class="modal-row">
-      <label>ATAQUE <span id="atk-val">5ms</span></label>
-      <input type="range" id="custom-attack" min="1" max="300" value="5">
-    </div>
-    <div class="modal-row">
-      <label>DECAY / RELEASE <span id="rel-val">0.8s</span></label>
-      <input type="range" id="custom-release" min="1" max="30" value="8">
-    </div>
+
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">CANCELAR</button>
-      <button class="modal-btn primary" onclick="saveCustom()">AGREGAR</button>
+      <button class="modal-btn primary" id="save-btn" onclick="saveCustom()">AGREGAR</button>
     </div>
   </div>
 </div>
@@ -651,7 +753,23 @@ function buildSoundSelector() {
 }
 
 // ─── MODAL CUSTOM SOUND ──────────────────────────────────────────────────────
+let activeTab = 'synth';
+let pendingAudioBuffer = null;
+let pendingFileData = null; // base64 para localStorage
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.modal-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='synth')||(i===1&&tab==='file')));
+  document.getElementById('panel-synth').classList.toggle('active', tab==='synth');
+  document.getElementById('panel-file').classList.toggle('active', tab==='file');
+}
+
 function openModal() {
+  pendingAudioBuffer = null;
+  pendingFileData    = null;
+  document.getElementById('upload-preview').classList.remove('visible');
+  document.getElementById('upload-zone').style.display = '';
+  document.getElementById('audio-file-input').value = '';
   document.getElementById('modal').classList.add('visible');
 }
 function closeModal() {
@@ -665,52 +783,168 @@ document.getElementById('custom-release').addEventListener('input', function() {
   document.getElementById('rel-val').textContent = (this.value / 10).toFixed(1) + 's';
 });
 
-function saveCustom() {
-  const name    = (document.getElementById('custom-name').value  || 'CUSTOM').toUpperCase().slice(0,8);
-  const emoji   = document.getElementById('custom-emoji').value  || '🎵';
-  const type    = document.getElementById('custom-type').value;
-  const attack  = parseInt(document.getElementById('custom-attack').value) / 1000;
-  const release = parseInt(document.getElementById('custom-release').value) / 10;
+// File input
+document.getElementById('audio-file-input').addEventListener('change', handleFileSelect);
 
-  const id = 'custom_' + Date.now();
-  const preset = {
-    id, icon: emoji, label: name,
-    play(freq, ctx) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = type; o.frequency.value = freq;
-      g.gain.setValueAtTime(0, ctx.currentTime);
-      g.gain.linearRampToValueAtTime(0.45, ctx.currentTime + attack);
-      g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + attack + 0.1);
-      o.connect(g); g.connect(ctx.destination); o.start();
-      return { osc:o, gain:g };
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', ()  => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processAudioFile(file);
+});
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processAudioFile(file);
+}
+
+function processAudioFile(file) {
+  const allowed = ['audio/mpeg','audio/mp3','audio/wav','audio/wave'];
+  if (!file.type.match(/audio\/(mpeg|mp3|wav|wave)/) && !file.name.match(/\.(mp3|wav)$/i)) {
+    alert('Solo se aceptan archivos MP3 o WAV'); return;
+  }
+
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('save-btn').textContent = 'CARGANDO...';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const arrayBuffer = e.target.result;
+    try {
+      const ctx = getCtx();
+      pendingAudioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      // Guardar base64 para localStorage (solo si < 5MB)
+      if (arrayBuffer.byteLength < 5 * 1024 * 1024) {
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        bytes.forEach(b => binary += String.fromCharCode(b));
+        pendingFileData = { base64: btoa(binary), type: file.type, name: file.name };
+      }
+
+      // Preview
+      document.getElementById('upload-zone').style.display = 'none';
+      document.getElementById('preview-name').textContent = file.name;
+      document.getElementById('preview-size').textContent = (file.size/1024).toFixed(0) + ' KB · ' + pendingAudioBuffer.duration.toFixed(1) + 's';
+      document.getElementById('upload-preview').classList.add('visible');
+
+      // Auto-fill name from filename
+      if (!document.getElementById('file-name-input').value) {
+        document.getElementById('file-name-input').value = file.name.replace(/\.[^.]+$/,'').toUpperCase().slice(0,8);
+      }
+
+      document.getElementById('save-btn').disabled = false;
+      document.getElementById('save-btn').textContent = 'AGREGAR';
+    } catch(err) {
+      alert('No se pudo decodificar el archivo. Intenta con otro MP3 o WAV.');
+      document.getElementById('save-btn').disabled = false;
+      document.getElementById('save-btn').textContent = 'AGREGAR';
     }
   };
+  reader.readAsArrayBuffer(file);
+}
 
-  customPresets.push(preset);
-  // Guardar versión serializable (sin función)
-  const saved = JSON.parse(localStorage.getItem('piano-custom') || '[]');
-  saved.push({ id, icon: emoji, label: name, type, attack: attack*1000, release: release*10 });
-  localStorage.setItem('piano-custom', JSON.stringify(saved));
+function clearFile() {
+  pendingAudioBuffer = null;
+  pendingFileData = null;
+  document.getElementById('upload-preview').classList.remove('visible');
+  document.getElementById('upload-zone').style.display = '';
+  document.getElementById('audio-file-input').value = '';
+}
+
+function makeBufferPreset(id, icon, label, buffer, baseFreq) {
+  return {
+    id, icon, label,
+    play(freq, ctx) {
+      const src  = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      src.buffer = buffer;
+      src.playbackRate.value = freq / baseFreq;
+      src.loop = false;
+      gain.gain.setValueAtTime(0.8, ctx.currentTime);
+      src.connect(gain); gain.connect(ctx.destination);
+      src.start();
+      // Wrap src in osc-like interface
+      return { osc: src, gain };
+    }
+  };
+}
+
+function saveCustom() {
+  if (activeTab === 'file') {
+    if (!pendingAudioBuffer) { alert('Primero sube un archivo MP3 o WAV'); return; }
+    const name     = (document.getElementById('file-name-input').value || 'SAMPLE').toUpperCase().slice(0,8);
+    const emoji    = document.getElementById('file-emoji-input').value || '🎵';
+    const baseFreq = parseFloat(document.getElementById('base-note-select').value) || 440;
+    const id       = 'sample_' + Date.now();
+    const preset   = makeBufferPreset(id, emoji, name, pendingAudioBuffer, baseFreq);
+    customPresets.push(preset);
+
+    // Guardar en localStorage si el archivo no es muy grande
+    if (pendingFileData) {
+      const saved = JSON.parse(localStorage.getItem('piano-custom') || '[]');
+      saved.push({ id, icon: emoji, label: name, kind: 'sample', baseFreq, ...pendingFileData });
+      try { localStorage.setItem('piano-custom', JSON.stringify(saved)); } catch(e) { /* quota */ }
+    }
+  } else {
+    const name    = (document.getElementById('custom-name').value  || 'CUSTOM').toUpperCase().slice(0,8);
+    const emoji   = document.getElementById('custom-emoji').value  || '🎵';
+    const type    = document.getElementById('custom-type').value;
+    const attack  = parseInt(document.getElementById('custom-attack').value) / 1000;
+    const id      = 'custom_' + Date.now();
+    const preset  = {
+      id, icon: emoji, label: name,
+      play(freq, ctx) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type; o.frequency.value = freq;
+        g.gain.setValueAtTime(0, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.45, ctx.currentTime + attack);
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + attack + 0.1);
+        o.connect(g); g.connect(ctx.destination); o.start();
+        return { osc:o, gain:g };
+      }
+    };
+    customPresets.push(preset);
+    const saved = JSON.parse(localStorage.getItem('piano-custom') || '[]');
+    saved.push({ id, icon: emoji, label: name, kind: 'synth', type, attack: attack*1000 });
+    try { localStorage.setItem('piano-custom', JSON.stringify(saved)); } catch(e) {}
+  }
 
   closeModal();
-  currentPreset = id;
+  currentPreset = customPresets[customPresets.length - 1].id;
   buildSoundSelector();
 }
 
 // Restaurar custom presets del localStorage
-customPresets = JSON.parse(localStorage.getItem('piano-custom') || '[]').map(p => ({
-  id: p.id, icon: p.icon, label: p.label,
-  play(freq, ctx) {
+customPresets = [];
+(JSON.parse(localStorage.getItem('piano-custom') || '[]')).forEach(async p => {
+  if (p.kind === 'sample' && p.base64) {
+    try {
+      const binary = atob(p.base64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const ctx    = getCtx();
+      const buffer = await ctx.decodeAudioData(bytes.buffer);
+      customPresets.push(makeBufferPreset(p.id, p.icon, p.label, buffer, p.baseFreq || 440));
+      buildSoundSelector();
+    } catch(e) { /* skip */ }
+  } else if (p.kind === 'synth' || p.type) {
     const atk = (p.attack || 5) / 1000;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = p.type || 'sine'; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0.45, ctx.currentTime + atk);
-    g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + atk + 0.1);
-    o.connect(g); g.connect(ctx.destination); o.start();
-    return { osc:o, gain:g };
+    customPresets.push({
+      id: p.id, icon: p.icon, label: p.label,
+      play(freq, ctx) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = p.type || 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.45, ctx.currentTime + atk);
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + atk + 0.1);
+        o.connect(g); g.connect(ctx.destination); o.start();
+        return { osc:o, gain:g };
+      }
+    });
   }
-}));
+});
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 buildSoundSelector();
