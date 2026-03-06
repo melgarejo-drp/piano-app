@@ -140,6 +140,16 @@
   .modal-btn:hover { opacity: 0.8; }
   .modal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+  /* Recording pulse */
+  @keyframes recPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.5); }
+    50%      { box-shadow: 0 0 0 10px rgba(255,59,48,0); }
+  }
+  #rec-btn.recording {
+    background: #ff3b30 !important; color: #fff !important;
+    animation: recPulse 0.8s infinite;
+  }
+
   /* ── PIANO ──────────────────────────────────────── */
   .piano-wrapper { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 
@@ -252,8 +262,9 @@
 
     <!-- Tabs -->
     <div class="modal-tabs">
-      <button class="modal-tab active" onclick="switchTab('synth')">🎛 SINTETIZADOR</button>
+      <button class="modal-tab active" onclick="switchTab('synth')">🎛 SINT.</button>
       <button class="modal-tab"        onclick="switchTab('file')">📁 ARCHIVO</button>
+      <button class="modal-tab"        onclick="switchTab('record')">🎤 GRABAR</button>
     </div>
 
     <!-- Panel: Synth -->
@@ -325,6 +336,61 @@
       </div>
       <div style="font-size:9px;color:#333;letter-spacing:1px;line-height:1.6">
         * El sample se reproducirá en la frecuencia original en la nota base seleccionada. Las otras teclas ajustan el pitch proporcionalmente.
+      </div>
+    </div>
+
+    <!-- Panel: Record -->
+    <div class="modal-panel" id="panel-record">
+      <div class="modal-row">
+        <label>NOMBRE</label>
+        <input type="text" id="rec-name-input" maxlength="8" placeholder="MI GRAB."
+          style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:12px;padding:8px;outline:none;width:100%">
+      </div>
+      <div class="modal-row">
+        <label>EMOJI</label>
+        <input type="text" id="rec-emoji-input" maxlength="2" placeholder="🎤"
+          style="background:#0a0a0a;border:1px solid #222;border-radius:4px;color:#f0f0f0;font-family:'Space Mono',monospace;font-size:20px;padding:8px;outline:none;width:80px;text-align:center">
+      </div>
+
+      <!-- Rec UI -->
+      <div id="rec-ui" style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 0">
+        <div id="rec-status" style="font-size:10px;color:#555;letter-spacing:3px;">LISTO PARA GRABAR</div>
+        <div id="rec-timer" style="font-size:40px;font-weight:700;color:#333;font-family:'Space Mono',monospace;min-height:52px;">—</div>
+
+        <!-- Visualizer -->
+        <canvas id="rec-canvas" width="260" height="50"
+          style="border-radius:6px;background:#0a0a0a;border:1px solid #1a1a1a;"></canvas>
+
+        <!-- Buttons -->
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button id="rec-btn" onclick="toggleRecord()"
+            style="width:60px;height:60px;border-radius:50%;border:3px solid #ff3b30;background:#1a0000;color:#ff3b30;font-size:22px;cursor:pointer;transition:all 0.2s;">
+            ⏺
+          </button>
+          <button id="rec-play-btn" onclick="playRecording()" disabled
+            style="width:44px;height:44px;border-radius:50%;border:1px solid #333;background:#111;color:#555;font-size:16px;cursor:pointer;transition:all 0.2s;">
+            ▶
+          </button>
+          <button id="rec-clear-btn" onclick="clearRecording()" disabled
+            style="width:44px;height:44px;border-radius:50%;border:1px solid #333;background:#111;color:#555;font-size:14px;cursor:pointer;transition:all 0.2s;">
+            ✕
+          </button>
+        </div>
+
+        <div style="font-size:9px;color:#2a2a2a;letter-spacing:2px;text-align:center;line-height:1.6">
+          MÁX. 3 SEGUNDOS · SUELTA EL BOTÓN PARA DETENER
+        </div>
+      </div>
+
+      <div class="base-note-row">
+        <label>NOTA BASE DE LA GRABACIÓN</label>
+        <select id="rec-base-note-select">
+          <option value="440">A4 — 440 Hz (por defecto)</option>
+          <option value="261.63">C4 — 261 Hz</option>
+          <option value="523.25">C5 — 523 Hz</option>
+          <option value="329.63">E4 — 329 Hz</option>
+          <option value="392">G4 — 392 Hz</option>
+        </select>
       </div>
     </div>
 
@@ -759,9 +825,12 @@ let pendingFileData = null; // base64 para localStorage
 
 function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.modal-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='synth')||(i===1&&tab==='file')));
+  document.querySelectorAll('.modal-tab').forEach((t,i) => {
+    t.classList.toggle('active', (i===0&&tab==='synth')||(i===1&&tab==='file')||(i===2&&tab==='record'));
+  });
   document.getElementById('panel-synth').classList.toggle('active', tab==='synth');
   document.getElementById('panel-file').classList.toggle('active', tab==='file');
+  document.getElementById('panel-record').classList.toggle('active', tab==='record');
 }
 
 function openModal() {
@@ -770,6 +839,7 @@ function openModal() {
   document.getElementById('upload-preview').classList.remove('visible');
   document.getElementById('upload-zone').style.display = '';
   document.getElementById('audio-file-input').value = '';
+  clearRecording();
   document.getElementById('modal').classList.add('visible');
 }
 function closeModal() {
@@ -872,6 +942,22 @@ function makeBufferPreset(id, icon, label, buffer, baseFreq) {
 }
 
 function saveCustom() {
+  if (activeTab === 'record') {
+    if (!recBuffer) { alert('Primero graba un sonido'); return; }
+    const name     = (document.getElementById('rec-name-input').value || 'GRAB').toUpperCase().slice(0,8);
+    const emoji    = document.getElementById('rec-emoji-input').value || '🎤';
+    const baseFreq = parseFloat(document.getElementById('rec-base-note-select').value) || 440;
+    const id       = 'rec_' + Date.now();
+    const preset   = makeBufferPreset(id, emoji, name, recBuffer, baseFreq);
+    customPresets.push(preset);
+    // No guardamos en localStorage (WebM no siempre es decodificable cross-session)
+    closeModal();
+    currentPreset = id;
+    buildSoundSelector();
+    clearRecording();
+    return;
+  }
+
   if (activeTab === 'file') {
     if (!pendingAudioBuffer) { alert('Primero sube un archivo MP3 o WAV'); return; }
     const name     = (document.getElementById('file-name-input').value || 'SAMPLE').toUpperCase().slice(0,8);
@@ -945,6 +1031,155 @@ customPresets = [];
     });
   }
 });
+
+// ─── MICROPHONE RECORDING ────────────────────────────────────────────────────
+let mediaRecorder   = null;
+let recChunks       = [];
+let recBuffer       = null;  // AudioBuffer del recording
+let recStream       = null;
+let recAnalyser     = null;
+let recAnimFrame    = null;
+let recTimerInterval= null;
+let isRecording     = false;
+const MAX_REC_MS    = 3000;
+
+async function toggleRecord() {
+  if (isRecording) { stopRecording(); return; }
+  await startRecording();
+}
+
+async function startRecording() {
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    setRecStatus('❌ SIN ACCESO AL MICRÓFONO', '#ff3b30');
+    return;
+  }
+
+  recChunks = [];
+  recBuffer = null;
+
+  // Visualizer
+  const ctx = getCtx();
+  const source   = ctx.createMediaStreamSource(recStream);
+  recAnalyser    = ctx.createAnalyser();
+  recAnalyser.fftSize = 256;
+  source.connect(recAnalyser);
+  drawRecWave();
+
+  // MediaRecorder
+  mediaRecorder = new MediaRecorder(recStream);
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
+  mediaRecorder.onstop = async () => {
+    const blob       = new Blob(recChunks, { type: recChunks[0]?.type || 'audio/webm' });
+    const arrayBuf   = await blob.arrayBuffer();
+    try {
+      recBuffer = await ctx.decodeAudioData(arrayBuf);
+      setRecStatus('✅ GRABACIÓN LISTA', '#c8ff00');
+      document.getElementById('rec-play-btn').disabled  = false;
+      document.getElementById('rec-clear-btn').disabled = false;
+      document.getElementById('rec-play-btn').style.color  = '#c8ff00';
+      document.getElementById('rec-clear-btn').style.color = '#888';
+      document.getElementById('save-btn').disabled = false;
+    } catch(e) {
+      setRecStatus('❌ ERROR AL PROCESAR', '#ff3b30');
+    }
+    stopVisualizer();
+    recStream.getTracks().forEach(t => t.stop());
+  };
+
+  mediaRecorder.start();
+  isRecording = true;
+  document.getElementById('rec-btn').textContent = '⏹';
+  document.getElementById('rec-btn').classList.add('recording');
+  setRecStatus('🔴 GRABANDO...', '#ff3b30');
+
+  // Timer
+  let elapsed = 0;
+  document.getElementById('rec-timer').textContent = '0.0s';
+  document.getElementById('rec-timer').style.color = '#ff3b30';
+  recTimerInterval = setInterval(() => {
+    elapsed += 100;
+    document.getElementById('rec-timer').textContent = (elapsed/1000).toFixed(1) + 's';
+    if (elapsed >= MAX_REC_MS) stopRecording();
+  }, 100);
+}
+
+function stopRecording() {
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+  clearInterval(recTimerInterval);
+  mediaRecorder.stop();
+  isRecording = false;
+  document.getElementById('rec-btn').textContent = '⏺';
+  document.getElementById('rec-btn').classList.remove('recording');
+  document.getElementById('rec-timer').style.color = '#555';
+}
+
+function playRecording() {
+  if (!recBuffer) return;
+  const ctx = getCtx();
+  const src = ctx.createBufferSource();
+  src.buffer = recBuffer;
+  src.connect(ctx.destination);
+  src.start();
+  // Flash button
+  const btn = document.getElementById('rec-play-btn');
+  btn.style.borderColor = '#c8ff00';
+  setTimeout(() => btn.style.borderColor = '#333', recBuffer.duration * 1000 + 100);
+}
+
+function clearRecording() {
+  stopRecording();
+  recBuffer = null;
+  recChunks = [];
+  stopVisualizer();
+  if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
+  setRecStatus('LISTO PARA GRABAR', '#555');
+  document.getElementById('rec-timer').textContent = '—';
+  document.getElementById('rec-timer').style.color = '#333';
+  document.getElementById('rec-btn').textContent = '⏺';
+  document.getElementById('rec-btn').classList.remove('recording');
+  document.getElementById('rec-play-btn').disabled  = true;
+  document.getElementById('rec-play-btn').style.color  = '#555';
+  document.getElementById('rec-clear-btn').disabled = true;
+  document.getElementById('rec-clear-btn').style.color = '#555';
+  const canvas = document.getElementById('rec-canvas');
+  const c = canvas.getContext('2d');
+  c.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function setRecStatus(msg, color) {
+  const el = document.getElementById('rec-status');
+  el.textContent = msg; el.style.color = color;
+}
+
+function drawRecWave() {
+  const canvas = document.getElementById('rec-canvas');
+  const c = canvas.getContext('2d');
+  const bufLen = recAnalyser ? recAnalyser.frequencyBinCount : 0;
+  const data   = new Uint8Array(bufLen);
+  function draw() {
+    if (!recAnalyser) return;
+    recAnimFrame = requestAnimationFrame(draw);
+    recAnalyser.getByteTimeDomainData(data);
+    c.fillStyle = '#0a0a0a'; c.fillRect(0,0,canvas.width,canvas.height);
+    c.lineWidth = 2; c.strokeStyle = '#ff3b30'; c.beginPath();
+    const sliceW = canvas.width / bufLen;
+    let x = 0;
+    data.forEach((v, i) => {
+      const y = (v / 128) * canvas.height / 2;
+      i === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+      x += sliceW;
+    });
+    c.lineTo(canvas.width, canvas.height / 2); c.stroke();
+  }
+  draw();
+}
+
+function stopVisualizer() {
+  if (recAnimFrame) { cancelAnimationFrame(recAnimFrame); recAnimFrame = null; }
+  recAnalyser = null;
+}
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 buildSoundSelector();
