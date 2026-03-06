@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>● PIANO</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #f0f0f0;
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    user-select: none;
+  }
+
+  h1 {
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: #555;
+    text-transform: uppercase;
+  }
+
+  /* Nota activa display */
+  #note-display {
+    font-size: 72px;
+    font-weight: 700;
+    letter-spacing: -2px;
+    color: #f0f0f0;
+    min-height: 90px;
+    text-align: center;
+    transition: color 0.1s;
+  }
+
+  #note-display.active {
+    color: #ff3b30;
+  }
+
+  #freq-display {
+    font-size: 12px;
+    color: #444;
+    letter-spacing: 2px;
+    min-height: 20px;
+    text-align: center;
+  }
+
+  /* Piano container */
+  .piano-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .piano {
+    position: relative;
+    display: flex;
+    height: 200px;
+    background: #111;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #222;
+    gap: 3px;
+  }
+
+  /* Teclas blancas */
+  .key-white {
+    position: relative;
+    width: 52px;
+    height: 160px;
+    background: #f0f0f0;
+    border-radius: 0 0 6px 6px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 10px;
+    transition: background 0.05s, transform 0.05s;
+    z-index: 1;
+  }
+
+  .key-white:hover {
+    background: #e8e8e8;
+  }
+
+  .key-white.pressed {
+    background: #ff3b30;
+    transform: scaleY(0.97);
+    transform-origin: top;
+  }
+
+  .key-white .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 1px;
+  }
+
+  .key-white.pressed .label {
+    color: #fff;
+  }
+
+  .key-white .key-letter {
+    font-size: 10px;
+    color: #bbb;
+    margin-top: 2px;
+  }
+
+  .key-white.pressed .key-letter {
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* Teclas negras */
+  .key-black {
+    position: absolute;
+    width: 34px;
+    height: 100px;
+    background: #111;
+    border-radius: 0 0 4px 4px;
+    border: 1px solid #333;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 8px;
+    z-index: 2;
+    transition: background 0.05s, transform 0.05s;
+    top: 20px;
+  }
+
+  .key-black:hover {
+    background: #222;
+  }
+
+  .key-black.pressed {
+    background: #ff3b30;
+    transform: scaleY(0.97);
+    transform-origin: top;
+  }
+
+  .key-black .label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #555;
+    letter-spacing: 1px;
+  }
+
+  .key-black.pressed .label {
+    color: rgba(255,255,255,0.8);
+  }
+
+  .key-black .key-letter {
+    font-size: 9px;
+    color: #444;
+    margin-top: 1px;
+  }
+
+  .key-black.pressed .key-letter {
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* Keyboard hint */
+  .hint {
+    font-size: 11px;
+    color: #333;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  .hint span {
+    color: #555;
+  }
+
+  /* Octave controls */
+  .octave-control {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .octave-btn {
+    background: none;
+    border: 1px solid #333;
+    color: #555;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 6px 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+
+  .octave-btn:hover {
+    border-color: #666;
+    color: #f0f0f0;
+  }
+
+  #octave-label {
+    font-size: 12px;
+    color: #555;
+    letter-spacing: 2px;
+    min-width: 70px;
+    text-align: center;
+  }
+
+  /* Sustain indicator */
+  #sustain-indicator {
+    font-size: 11px;
+    color: #333;
+    letter-spacing: 2px;
+  }
+
+  #sustain-indicator.on {
+    color: #ff3b30;
+  }
+</style>
+</head>
+<body>
+
+<h1>● piano</h1>
+
+<div>
+  <div id="note-display">—</div>
+  <div id="freq-display"></div>
+</div>
+
+<div class="piano-wrapper">
+  <div class="piano" id="piano"></div>
+
+  <div class="octave-control">
+    <button class="octave-btn" id="oct-down">◀ OCT</button>
+    <div id="octave-label">OCTAVE 4</div>
+    <button class="octave-btn" id="oct-up">OCT ▶</button>
+  </div>
+</div>
+
+<div class="hint">
+  TECLADO: <span>A S D F G H J K L</span> (blancas) · <span>W E T Y U O P</span> (negras)<br>
+  SPACE: sustain
+</div>
+<div id="sustain-indicator">SUSTAIN: OFF</div>
+
+<script>
+  // ─── CONFIGURACIÓN ───────────────────────────────────────────────
+  const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  
+  // Teclas del teclado → notas (relativas a la octava)
+  const WHITE_KEYS = [
+    { note: 'C',  key: 'a', label: 'C' },
+    { note: 'D',  key: 's', label: 'D' },
+    { note: 'E',  key: 'd', label: 'E' },
+    { note: 'F',  key: 'f', label: 'F' },
+    { note: 'G',  key: 'g', label: 'G' },
+    { note: 'A',  key: 'h', label: 'A' },
+    { note: 'B',  key: 'j', label: 'B' },
+    { note: 'C',  key: 'k', label: 'C', octaveOffset: 1 },
+    { note: 'D',  key: 'l', label: 'D', octaveOffset: 1 },
+  ];
+
+  const BLACK_KEYS = [
+    { note: 'C#', key: 'w', label: 'C#', whiteIndex: 0 },
+    { note: 'D#', key: 'e', label: 'D#', whiteIndex: 1 },
+    { note: 'F#', key: 't', label: 'F#', whiteIndex: 3 },
+    { note: 'G#', key: 'y', label: 'G#', whiteIndex: 4 },
+    { note: 'A#', key: 'u', label: 'A#', whiteIndex: 5 },
+    { note: 'C#', key: 'o', label: 'C#', whiteIndex: 7, octaveOffset: 1 },
+    { note: 'D#', key: 'p', label: 'D#', whiteIndex: 8, octaveOffset: 1 },
+  ];
+
+  // ─── WEB AUDIO ───────────────────────────────────────────────────
+  let audioCtx = null;
+  let octave = 4;
+  let sustain = false;
+  const activeNodes = {}; // key → { osc, gain }
+
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function noteToFreq(note, oct) {
+    const semitone = NOTE_NAMES.indexOf(note);
+    // A4 = 440Hz, índice 9, octava 4
+    const distance = (oct - 4) * 12 + semitone - 9;
+    return 440 * Math.pow(2, distance / 12);
+  }
+
+  function playNote(noteId, note, oct) {
+    if (activeNodes[noteId]) return;
+    const ctx = getAudioCtx();
+    const freq = noteToFreq(note, oct);
+
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    // Piano-ish timbre
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(3000, ctx.currentTime);
+    filter.Q.setValueAtTime(0.5, ctx.currentTime);
+
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.1);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start();
+
+    activeNodes[noteId] = { osc, gain: gainNode };
+
+    // Display
+    const display = document.getElementById('note-display');
+    const freqDisplay = document.getElementById('freq-display');
+    display.textContent = note + oct;
+    display.classList.add('active');
+    freqDisplay.textContent = freq.toFixed(2) + ' Hz';
+  }
+
+  function stopNote(noteId) {
+    if (sustain) return;
+    releaseNote(noteId);
+  }
+
+  function releaseNote(noteId) {
+    const node = activeNodes[noteId];
+    if (!node) return;
+    const ctx = getAudioCtx();
+    node.gain.gain.cancelScheduledValues(ctx.currentTime);
+    node.gain.gain.setValueAtTime(node.gain.gain.value, ctx.currentTime);
+    node.gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+    node.osc.stop(ctx.currentTime + 0.5);
+    delete activeNodes[noteId];
+
+    // Si no hay notas activas, limpiar display
+    setTimeout(() => {
+      if (Object.keys(activeNodes).length === 0) {
+        const display = document.getElementById('note-display');
+        display.textContent = '—';
+        display.classList.remove('active');
+        document.getElementById('freq-display').textContent = '';
+      }
+    }, 600);
+  }
+
+  // ─── BUILD PIANO ─────────────────────────────────────────────────
+  const piano = document.getElementById('piano');
+  const WHITE_W = 52;
+  const WHITE_GAP = 3;
+
+  function buildPiano() {
+    piano.innerHTML = '';
+
+    // Teclas blancas
+    WHITE_KEYS.forEach((k, i) => {
+      const el = document.createElement('div');
+      el.className = 'key-white';
+      el.dataset.noteId = k.key;
+      el.innerHTML = `<span class="label">${k.label}${k.octaveOffset ? octave + k.octaveOffset : octave}</span><span class="key-letter">${k.key.toUpperCase()}</span>`;
+
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const oct = k.octaveOffset ? octave + k.octaveOffset : octave;
+        playNote(k.key, k.note, oct);
+        el.classList.add('pressed');
+      });
+      el.addEventListener('mouseup', () => {
+        stopNote(k.key);
+        el.classList.remove('pressed');
+      });
+      el.addEventListener('mouseleave', () => {
+        stopNote(k.key);
+        el.classList.remove('pressed');
+      });
+
+      piano.appendChild(el);
+    });
+
+    // Teclas negras (posicionadas absolutamente)
+    BLACK_KEYS.forEach((k) => {
+      const el = document.createElement('div');
+      el.className = 'key-black';
+      el.dataset.noteId = k.key;
+      el.innerHTML = `<span class="label">${k.label}</span><span class="key-letter">${k.key.toUpperCase()}</span>`;
+
+      // Posición: sobre el gap entre blanca[whiteIndex] y blanca[whiteIndex+1]
+      const leftPos = 20 + k.whiteIndex * (WHITE_W + WHITE_GAP) + (WHITE_W + WHITE_GAP) - 17 - 1;
+      el.style.left = leftPos + 'px';
+
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const oct = k.octaveOffset ? octave + k.octaveOffset : octave;
+        playNote(k.key, k.note, oct);
+        el.classList.add('pressed');
+      });
+      el.addEventListener('mouseup', () => {
+        stopNote(k.key);
+        el.classList.remove('pressed');
+      });
+      el.addEventListener('mouseleave', () => {
+        stopNote(k.key);
+        el.classList.remove('pressed');
+      });
+
+      piano.appendChild(el);
+    });
+  }
+
+  // ─── TECLADO ─────────────────────────────────────────────────────
+  const allKeys = [...WHITE_KEYS, ...BLACK_KEYS];
+  const keyMap = {};
+  allKeys.forEach(k => keyMap[k.key] = k);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const k = e.key.toLowerCase();
+
+    if (k === ' ') {
+      sustain = true;
+      document.getElementById('sustain-indicator').textContent = 'SUSTAIN: ON';
+      document.getElementById('sustain-indicator').classList.add('on');
+      return;
+    }
+
+    const def = keyMap[k];
+    if (!def) return;
+
+    const oct = def.octaveOffset ? octave + def.octaveOffset : octave;
+    playNote(def.key, def.note, oct);
+
+    const el = piano.querySelector(`[data-note-id="${def.key}"]`);
+    if (el) el.classList.add('pressed');
+  });
+
+  document.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+
+    if (k === ' ') {
+      sustain = false;
+      document.getElementById('sustain-indicator').textContent = 'SUSTAIN: OFF';
+      document.getElementById('sustain-indicator').classList.remove('on');
+      // Release todas las notas retenidas
+      Object.keys(activeNodes).forEach(id => releaseNote(id));
+      return;
+    }
+
+    const def = keyMap[k];
+    if (!def) return;
+    stopNote(def.key);
+
+    const el = piano.querySelector(`[data-note-id="${def.key}"]`);
+    if (el) el.classList.remove('pressed');
+  });
+
+  // ─── OCTAVE CONTROLS ─────────────────────────────────────────────
+  document.getElementById('oct-down').addEventListener('click', () => {
+    if (octave > 1) { octave--; updateOctave(); }
+  });
+  document.getElementById('oct-up').addEventListener('click', () => {
+    if (octave < 7) { octave++; updateOctave(); }
+  });
+
+  function updateOctave() {
+    document.getElementById('octave-label').textContent = `OCTAVE ${octave}`;
+    buildPiano();
+  }
+
+  // ─── INIT ─────────────────────────────────────────────────────────
+  buildPiano();
+</script>
+</body>
+</html>
